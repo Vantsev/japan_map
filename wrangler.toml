@@ -1,0 +1,10 @@
+name = "keikenchi"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "public"
+
+# D1 binding for the rooms API (functions/api/[[path]].js).
+# database_id is filled after `wrangler d1 create keikenchi` (see deploy.sh).
+[[d1_databases]]
+binding = "DB"
+database_name = "keikenchi"
+database_id = "REPLACE_WITH_D1_ID"

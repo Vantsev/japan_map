@@ -1,0 +1,7 @@
+japan.geojson
+node_modules/
+.wrangler/
+.wrangler-state/
+.dev.vars
+*.log
+.DS_Store

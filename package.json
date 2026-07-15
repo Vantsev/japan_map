@@ -1,0 +1,16 @@
+{
+  "name": "keikenchi",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Japan Lifetime Score — mark visited prefectures, compare scores",
+  "scripts": {
+    "build": "python3 build.py",
+    "dev": "wrangler pages dev public --persist-to .wrangler-state",
+    "db:local": "wrangler d1 execute keikenchi --local --persist-to .wrangler-state --file schema.sql",
+    "db:remote": "wrangler d1 execute keikenchi --remote --file schema.sql",
+    "deploy": "python3 build.py && wrangler pages deploy public --project-name keikenchi"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
