@@ -7,4 +7,4 @@ pages_build_output_dir = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "keikenchi"
-database_id = "REPLACE_WITH_D1_ID"
+database_id = "0fdf002a-7951-4979-b58b-c7bca77f27df"
