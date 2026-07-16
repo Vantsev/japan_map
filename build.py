@@ -9,6 +9,17 @@ html = r'''<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Keikenchi — Japan Lifetime Score</title>
+<meta name="description" content="Отметь посещённые префектуры Японии и меряйся баллами с друзьями. Карта, баллы 0–5, счётчик визитов, ачивки, комнаты-лидерборды.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Keikenchi — Japan Lifetime Score">
+<meta property="og:description" content="Отметь посещённые префектуры Японии и меряйся баллами с друзьями.">
+<meta property="og:image" content="https://keikenchi-sca.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://keikenchi-sca.pages.dev/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Keikenchi — Japan Lifetime Score">
+<meta name="twitter:image" content="https://keikenchi-sca.pages.dev/og.png">
 <style>
   :root{--bg:#f6efe1;--ink:#333;--line:#3a3a3a}
   *{box-sizing:border-box}
@@ -62,6 +73,16 @@ html = r'''<!DOCTYPE html>
   .brow .bs{font-weight:800;min-width:44px;text-align:right}
   #viewbanner{display:none;max-width:520px;margin:12px auto 0;padding:9px 12px;background:#fff3d6;border:2px solid var(--line);border-radius:10px;font-size:13px;text-align:center}
   #viewbanner.on{display:block}
+  #ach{max-width:520px;margin:22px auto 0;text-align:left}
+  #ach h3{font-size:13px;margin:0 0 10px}
+  .achgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .achip{display:flex;gap:9px;align-items:center;padding:8px 10px;border:2px solid #eee;border-radius:10px;opacity:.45;filter:grayscale(1);transition:.2s}
+  .achip.on{opacity:1;filter:none;border-color:var(--line);background:#fff}
+  .achip .ae{font-size:22px;line-height:1}
+  .achip b{display:block;font-size:12px}
+  .achip small{color:#8a7f6a;font-size:11px}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(24px);background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:.28s;z-index:50;box-shadow:0 8px 24px #0004}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
   #viewbanner button{font:inherit;font-size:12px;font-weight:700;margin-left:8px;padding:4px 10px;border-radius:8px;border:2px solid var(--line);background:#fff;cursor:pointer}
   #pop{position:fixed;z-index:20;background:#fff;border:2px solid var(--line);border-radius:12px;padding:9px 11px;box-shadow:0 8px 24px #0003;display:none}
   #pop .name{font-size:12px;font-weight:700;margin-bottom:7px;white-space:nowrap}
@@ -110,7 +131,9 @@ html = r'''<!DOCTYPE html>
     <button id="roomjoin">Войти</button>
   </div>
   <div id="board"></div>
+  <div id="ach"></div>
 </div>
+<div id="toast"></div>
 <div id="tip"></div>
 <div id="pop">
   <div class="name"></div>
@@ -188,7 +211,7 @@ const syncLegend=()=>document.querySelectorAll('.lg').forEach(l=>l.classList.tog
 function toggle(id){const c=state[id]||0;state[id]=(c===brush)?0:brush;if(!state[id])delete state[id];paint(id);recalc();save();}
 function paint(id){const el=vp.querySelector(`path[data-id="${id}"]`);el.style.fill=RAW[state[id]||0];}
 function paintAll(){for(const p of PREF)paint(p.id);}
-function recalc(){let sum=0,cn=0;for(const k in state){sum+=state[k];if(state[k]>0)cn++;}let vis=0;for(const k in cnt)vis+=cnt[k];document.getElementById('total').textContent=sum+' pts';document.getElementById('pct').textContent=cn+' / 47 префектур'+(vis?` · ${vis} визитов`:'');}
+function recalc(){let sum=0,cn=0;for(const k in state){sum+=state[k];if(state[k]>0)cn++;}let vis=0;for(const k in cnt)vis+=cnt[k];document.getElementById('total').textContent=sum+' pts';document.getElementById('pct').textContent=cn+' / 47 префектур'+(vis?` · ${vis} визитов`:'');if(typeof checkAch==='function')checkAch();}
 
 // ---- tooltip ----
 const tip=document.getElementById('tip');
@@ -385,6 +408,55 @@ document.getElementById('roomjoin').onclick=()=>roomJoin(document.getElementById
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-copy]');if(!b)return;try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='ок!';setTimeout(()=>{if(b.dataset.copy.includes('room'))b.textContent='пригласить';else b.textContent='копир.';},1200);}catch{prompt('Скопируй:',b.dataset.copy);}});
 
 showCloudLink();
+
+
+// ================= achievements =================
+const range=(a,b)=>{const r=[];for(let i=a;i<=b;i++)r.push(i);return r;};
+const ISLANDS={Хоккайдо:[1],Хонсю:range(2,35),Сикоку:[36,37,38,39],Кюсю:[40,41,42,43,44,45,46]};
+const KANTO=[8,9,10,11,12,13,14], KANSAI=[24,25,26,27,28,29,30];
+const marked=()=>Object.keys(state).length;
+const sumScore=()=>{let s=0;for(const k in state)s+=state[k];return s;};
+const hasScore=v=>Object.values(state).some(x=>x===v);
+const allOf=ids=>ids.every(i=>state[i]);
+const totVisits=()=>{let s=0;for(const k in cnt)s+=cnt[k];return s;};
+const maxVisit=()=>{let m=0;for(const k in cnt)if(cnt[k]>m)m=cnt[k];return m;};
+const islandsDone=()=>Object.values(ISLANDS).every(g=>g.some(i=>state[i]));
+const ACH=[
+  {id:'first',e:'👣',t:'Первый шаг',d:'отметить 1 префектуру',f:()=>marked()>=1},
+  {id:'half',e:'🌓',t:'Полпути',d:'24 префектуры',f:()=>marked()>=24},
+  {id:'all',e:'🗾',t:'Вся Япония',d:'все 47 отмечены',f:()=>marked()>=47},
+  {id:'perfect',e:'💯',t:'Идеал',d:'все на 5 — 235 pts',f:()=>sumScore()>=235},
+  {id:'resided',e:'🏠',t:'Осёдлый',d:'где-то жил (5)',f:()=>hasScore(5)},
+  {id:'islander',e:'⛴️',t:'Островитянин',d:'4 главных острова',f:islandsDone},
+  {id:'kanto',e:'🗼',t:'Канто-мастер',d:'весь регион Канто',f:()=>allOf(KANTO)},
+  {id:'kansai',e:'🏯',t:'Кансай-мастер',d:'весь регион Кансай',f:()=>allOf(KANSAI)},
+  {id:'nomad',e:'🎒',t:'Кочевник',d:'20+ визитов',f:()=>totVisits()>=20},
+  {id:'regular',e:'🔁',t:'Завсегдатай',d:'×5 в одну префектуру',f:()=>maxVisit()>=5},
+  {id:'tottori',e:'🥚',t:'???',d:'секретная',secret:true,rt:'Нашёл Тоттори',rd:'отметил самую забытую',f:()=>!!state[31]},
+];
+const achEl=document.getElementById('ach');
+let achSeen=[]; try{achSeen=JSON.parse(localStorage.getItem('keikenchi_ach')||'[]')||[];}catch{}
+function renderAch(unlocked){
+  const n=unlocked.length;
+  achEl.innerHTML=`<h3>🏆 Ачивки · ${n}/${ACH.length}</h3><div class="achgrid">`+
+    ACH.map(a=>{const on=unlocked.includes(a.id);
+      const title=(a.secret&&!on)?a.t:(a.secret?a.rt:a.t);
+      const desc=(a.secret&&!on)?a.d:(a.secret?a.rd:a.d);
+      return `<div class="achip ${on?'on':''}"><span class="ae">${a.secret&&!on?'🔒':a.e}</span><span><b>${title}</b><small>${desc}</small></span></div>`;
+    }).join('')+'</div>';
+}
+let toastQ=[],toastBusy=false;
+function toast(msg){toastQ.push(msg);if(!toastBusy)nextToast();}
+function nextToast(){const el=document.getElementById('toast');if(!toastQ.length){toastBusy=false;return;}toastBusy=true;el.textContent=toastQ.shift();el.classList.add('on');setTimeout(()=>{el.classList.remove('on');setTimeout(nextToast,350);},2200);}
+function checkAch(){
+  const unlocked=ACH.filter(a=>{try{return a.f();}catch{return false;}}).map(a=>a.id);
+  for(const id of unlocked) if(!achSeen.includes(id)){
+    const a=ACH.find(x=>x.id===id);
+    if(achSeen.length) toast(`🏆 Ачивка: ${a.secret?a.rt:a.t}`); // no toast on very first load
+  }
+  if(unlocked.some(id=>!achSeen.includes(id))){achSeen=[...new Set([...achSeen,...unlocked])];localStorage.setItem('keikenchi_ach',JSON.stringify(achSeen));}
+  renderAch(unlocked);
+}
 
 apply(); syncLegend(); boot();
 </script>
