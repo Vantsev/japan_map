@@ -22,6 +22,12 @@
   .legend{text-align:left;font-size:12px}
   .legend h3{font-size:13px;margin:0 0 8px}
   .legend.hide{display:none}
+  .side{text-align:left;font-size:12px;min-width:150px}
+  .side.hide{display:none}
+  #stats h3{font-size:13px;margin:0 0 10px}
+  .stat{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-bottom:1px solid #e7e0cf}
+  .stat b{font-weight:800}
+  .backbtn{font:inherit;font-size:13px;font-weight:700;padding:7px 14px;border-radius:10px;border:2px solid var(--line);background:#fff;cursor:pointer;margin:2px 0 6px}
   .lg{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;cursor:pointer;border:2px solid transparent;user-select:none}
   .lg.active{border-color:var(--line);background:#fff8}
   .dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;border:2px solid var(--line);font-size:13px;flex:0 0 auto}
@@ -48,7 +54,8 @@
   <div class="score" id="score">0 / 0</div>
   <div class="count" id="cnt"></div>
   <div class="layout">
-    <div class="legend" id="legend"></div>
+    <div class="legend side" id="legend"></div>
+    <div class="side" id="stats"></div>
     <div class="mapbox">
       <svg id="map" xmlns="http://www.w3.org/2000/svg"><g id="vp"></g></svg>
       <div class="zoombtns">
@@ -121,13 +128,32 @@ function renderOverview(){
   document.getElementById('score').textContent=totDone+' / '+totAll;
   document.getElementById('cnt').textContent='городов отмечено по всей Японии';
   renderLegend(false);
+  renderStats();
+}
+function renderStats(){
+  const el=document.getElementById('stats'); el.classList.remove('hide');
+  // per-prefecture marked counts
+  const byPref={}; for(const code in cities){const pid=String(parseInt(code.slice(0,2),10));byPref[pid]=(byPref[pid]||0)+1;}
+  let totDone=0,totAll=0;for(const id in IDX){totAll+=IDX[id].n;}
+  for(const id in byPref)totDone+=byPref[id];
+  const started=Object.keys(byPref).length;
+  let leadId=null,leadN=0;for(const id in byPref)if(byPref[id]>leadN){leadN=byPref[id];leadId=id;}
+  const leadName=leadId?((PREF.find(p=>String(p.id)===leadId)||{}).r||''):'—';
+  const pct=totAll?Math.round(totDone/totAll*1000)/10:0;
+  el.innerHTML=`<h3>📊 Статистика</h3>`+
+    `<div class="stat"><span>Городов отмечено</span><b>${totDone}</b></div>`+
+    `<div class="stat"><span>Префектур начато</span><b>${started} / 47</b></div>`+
+    `<div class="stat"><span>Лидер</span><b>${esc(leadName)}${leadId?' · '+leadN:''}</b></div>`+
+    `<div class="stat"><span>Пройдено Японии</span><b>${pct}%</b></div>`;
 }
 
 // ================= PREFECTURE DETAIL =================
 async function openPref(id){
   view='detail';curPref=id;tip.style.opacity=0;
-  document.getElementById('crumb').innerHTML='<a id="back">🗾 Япония</a> › '+(PREF.find(p=>p.id===id)||{}).r;
+  const pr=(PREF.find(p=>p.id===id)||{});
+  document.getElementById('crumb').innerHTML='<button class="backbtn" id="back">← ко всем префектурам</button><div>🗾 Япония › '+esc(pr.r||'')+' '+esc(pr.ja||'')+'</div>';
   document.getElementById('back').onclick=renderOverview;
+  document.getElementById('stats').classList.add('hide');
   document.getElementById('hint').textContent='Клик по городу — отметить уровнем слева. Колесо/пинч — зум, тяни — двигать.';
   vp.innerHTML='<text x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" class="spin">загрузка городов…</text>';
   let geo;
@@ -139,7 +165,7 @@ async function openPref(id){
     const path=document.createElementNS(NS,'path');
     path.setAttribute('d',pathD(c.poly,proj));path.setAttribute('class','reg');path.setAttribute('stroke-width','.5');
     path.style.fill=RAW[cities[c.code]||0];path.dataset.code=c.code;path._c=c;
-    path.addEventListener('mousemove',e=>{tip.textContent=`${c.name} · ${cities[c.code]||0}`;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';tip.style.opacity=1;});
+    path.addEventListener('mousemove',e=>{tip.textContent=`${c.name} ${c.r||''} · ${cities[c.code]||0}`;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';tip.style.opacity=1;});
     path.addEventListener('mouseleave',()=>tip.style.opacity=0);
     vp.appendChild(path);
   }
@@ -164,6 +190,7 @@ function renderLegend(on){
     el.appendChild(div);}
   document.querySelectorAll('.lg').forEach(l=>l.classList.toggle('active',+l.dataset.n===brush));
   el.classList.toggle('hide',!on);
+  if(on)document.getElementById('stats').classList.add('hide');
 }
 
 // ---- persistence + account ----

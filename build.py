@@ -152,7 +152,7 @@ html = r'''<!DOCTYPE html>
   </div>
   <div id="board"></div>
   <div id="history"></div>
-  <div id="ach"></div>
+  <div style="margin-top:22px"><a href="/achievements.html" style="font-size:14px;font-weight:700;color:#2a6fb0;text-decoration:none;border:2px solid var(--line);border-radius:12px;padding:9px 18px;display:inline-block;background:#fff">🏆 Мои ачивки →</a></div>
 </div>
 <div id="toast"></div>
 <div id="authmodal"><div class="authcard">
@@ -482,6 +482,7 @@ const ACH=[
 const achEl=document.getElementById('ach');
 let achSeen=[]; try{achSeen=JSON.parse(localStorage.getItem('keikenchi_ach')||'[]')||[];}catch{}
 function renderAch(unlocked){
+  if(!achEl)return;
   const n=unlocked.length;
   achEl.innerHTML=`<h3>🏆 Ачивки · ${n}/${ACH.length}</h3><div class="achgrid">`+
     ACH.map(a=>{const on=unlocked.includes(a.id);
