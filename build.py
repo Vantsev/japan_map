@@ -126,24 +126,37 @@ const LEG = [[5,'Resided','Жил там'],[4,'Stayed','Ночевал'],[3,'Vis
 let brush=4, state={}, cnt={}, memo={};
 const byId={};
 
-// ---- projection ----
-const W=520,H=560,PAD=10;
+// ---- projection (Okinawa lifted into a top-left inset so main islands fill the frame) ----
+const W=520,H=560,PAD=8;
+const OKI=47; // Okinawa prefecture id
 const merc=(lo,la)=>[lo, Math.log(Math.tan(Math.PI/4+la*Math.PI/360))*180/Math.PI];
-let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
-for(const p of PREF)for(const r of p.poly)for(const [lo,la] of r){const[x,y]=merc(lo,la);if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}
-const s=Math.min((W-2*PAD)/(maxX-minX),(H-2*PAD)/(maxY-minY));
-const proj=(lo,la)=>{const[x,y]=merc(lo,la);return[PAD+(x-minX)*s,PAD+(maxY-y)*s];};
+function bbox(feats){let a=1e9,b=1e9,c=-1e9,d=-1e9;for(const p of feats)for(const r of p.poly)for(const [lo,la] of r){const[x,y]=merc(lo,la);if(x<a)a=x;if(x>c)c=x;if(y<b)b=y;if(y>d)d=y;}return[a,b,c,d];}
+const mainF=PREF.filter(p=>p.id!==OKI), okiF=PREF.filter(p=>p.id===OKI);
+const [aX,aY,cX,dY]=bbox(mainF);
+const sMain=Math.min((W-2*PAD)/(cX-aX),(H-2*PAD)/(dY-aY));
+const offX=PAD+((W-2*PAD)-(cX-aX)*sMain)/2;               // center horizontally in leftover space
+const projMain=(lo,la)=>{const[x,y]=merc(lo,la);return[offX+(x-aX)*sMain,PAD+(dY-y)*sMain];};
+// Okinawa inset box (top-left)
+const IB={x:6,y:150,w:120,h:128};
+const [oX,oY,ocX,odY]=okiF.length?bbox(okiF):[0,0,1,1];
+const sOki=Math.min(IB.w/((ocX-oX)||1),IB.h/((odY-oY)||1));
+const projOki=(lo,la)=>{const[x,y]=merc(lo,la);return[IB.x+(x-oX)*sOki,IB.y+(odY-y)*sOki];};
+const projFor=p=>(p.id===OKI?projOki:projMain);
 
 // ---- render ----
 const NS='http://www.w3.org/2000/svg';
 const svg=document.getElementById('map'), vp=document.getElementById('vp');
 svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
 const badges=document.createElementNS(NS,'g'); const badgeEl={};
-function centroid(p){let sx=0,sy=0,n=0;for(const [lo,la] of p.poly[0]){const[x,y]=proj(lo,la);sx+=x;sy+=y;n++;}return[sx/n,sy/n];}
+function centroid(p){const pj=projFor(p);let sx=0,sy=0,n=0;for(const [lo,la] of p.poly[0]){const[x,y]=pj(lo,la);sx+=x;sy+=y;n++;}return[sx/n,sy/n];}
+// Okinawa inset frame (dashed box + small label) — drawn under the paths
+const frame=document.createElementNS(NS,'rect');frame.setAttribute('x',IB.x-2);frame.setAttribute('y',IB.y-14);frame.setAttribute('width',IB.w+4);frame.setAttribute('height',IB.h+18);frame.setAttribute('rx',8);frame.setAttribute('fill','none');frame.setAttribute('stroke','#c9bfa8');frame.setAttribute('stroke-width','1');frame.setAttribute('stroke-dasharray','4 3');vp.appendChild(frame);
+const flab=document.createElementNS(NS,'text');flab.setAttribute('x',IB.x+2);flab.setAttribute('y',IB.y-4);flab.setAttribute('font-size','9');flab.setAttribute('fill','#8a7f6a');flab.setAttribute('font-weight','700');flab.textContent='沖縄 Okinawa';vp.appendChild(flab);
 for(const p of PREF){
   byId[p.id]=p;
+  const pj=projFor(p);
   let d='';
-  for(const r of p.poly) d+='M'+r.map(([lo,la])=>{const[x,y]=proj(lo,la);return x.toFixed(1)+' '+y.toFixed(1);}).join('L')+'Z';
+  for(const r of p.poly) d+='M'+r.map(([lo,la])=>{const[x,y]=pj(lo,la);return x.toFixed(1)+' '+y.toFixed(1);}).join('L')+'Z';
   const path=document.createElementNS(NS,'path');
   path.setAttribute('d',d); path.setAttribute('class','pref'); path.dataset.id=p.id;
   path.addEventListener('mousemove',e=>showTip(e,p));
