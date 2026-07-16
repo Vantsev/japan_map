@@ -83,6 +83,24 @@ html = r'''<!DOCTYPE html>
   .achip small{color:#8a7f6a;font-size:11px}
   #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(24px);background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:.28s;z-index:50;box-shadow:0 8px 24px #0004}
   #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  #acctbar{position:fixed;top:10px;right:12px;z-index:30;display:flex;gap:6px}
+  #acctbar button{font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:9px;border:2px solid var(--line);background:#fff;cursor:pointer}
+  #acctbar .who{background:#fff8e0}
+  #authmodal{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;z-index:60}
+  #authmodal.on{display:flex}
+  .authcard{background:#fff;border:2px solid var(--line);border-radius:16px;padding:22px;width:300px;text-align:center;position:relative}
+  .authcard h3{margin:0 0 12px;font-size:17px}
+  .authcard input{display:block;width:100%;font:inherit;font-size:14px;padding:10px 12px;border:2px solid var(--line);border-radius:10px;margin-bottom:10px}
+  .authcard .go{width:100%;font:inherit;font-size:14px;font-weight:700;padding:11px;border-radius:10px;border:2px solid var(--line);background:#cfe9ff;cursor:pointer;margin-bottom:10px}
+  .authcard .toggle{font-size:12px;color:#2a6fb0;cursor:pointer;background:none;border:none;display:block;margin:4px auto}
+  .autherr{color:#c0392b;font-size:12px;min-height:16px;margin-bottom:6px}
+  #history{max-width:520px;margin:20px auto 0;text-align:left}
+  #history h3{font-size:13px;margin:0 0 10px}
+  .hrow{display:flex;gap:10px;align-items:center;padding:8px 10px;border:2px solid #eee;border-radius:10px;margin-bottom:5px;font-size:13px}
+  .hrow .hd{width:13px;height:13px;border-radius:50%;border:2px solid var(--line);flex:0 0 auto}
+  .hrow .hn{font-weight:600}
+  .hrow .hmemo{color:#555;font-size:11px;font-style:italic}
+  .hrow .hmeta{color:#8a7f6a;font-size:11px;margin-left:auto;text-align:right;white-space:nowrap}
   #viewbanner button{font:inherit;font-size:12px;font-weight:700;margin-left:8px;padding:4px 10px;border-radius:8px;border:2px solid var(--line);background:#fff;cursor:pointer}
   #pop{position:fixed;z-index:20;background:#fff;border:2px solid var(--line);border-radius:12px;padding:9px 11px;box-shadow:0 8px 24px #0003;display:none}
   #pop .name{font-size:12px;font-weight:700;margin-bottom:7px;white-space:nowrap}
@@ -93,6 +111,7 @@ html = r'''<!DOCTYPE html>
 </style>
 </head>
 <body>
+<div id="acctbar"></div>
 <div class="wrap">
   <h1>ALL JAPAN KEIKENCHI</h1>
   <div class="score" id="total">0 pts</div>
@@ -131,9 +150,19 @@ html = r'''<!DOCTYPE html>
     <button id="roomjoin">Войти</button>
   </div>
   <div id="board"></div>
+  <div id="history"></div>
   <div id="ach"></div>
 </div>
 <div id="toast"></div>
+<div id="authmodal"><div class="authcard">
+  <h3 id="authtitle">Вход</h3>
+  <div class="autherr" id="autherr"></div>
+  <input id="authuser" placeholder="ник" maxlength="20" autocomplete="username">
+  <input id="authpass" type="password" placeholder="пароль" autocomplete="current-password">
+  <button class="go" id="authgo">Войти</button>
+  <button class="toggle" id="authtoggle">Нет аккаунта? Регистрация</button>
+  <button class="toggle" id="authcancel">закрыть</button>
+</div></div>
 <div id="tip"></div>
 <div id="pop">
   <div class="name"></div>
@@ -146,7 +175,7 @@ html = r'''<!DOCTYPE html>
 const PREF = __DATA__;
 const RAW = {0:'#ffffff',1:'#8fc7f0',2:'#7fd6a8',3:'#f5cf51',4:'#ee7f5f',5:'#f2a9cf'};
 const LEG = [[5,'Resided','Жил там'],[4,'Stayed','Ночевал'],[3,'Visited','Гулял'],[2,'Landed','Заезжал'],[1,'Passed','Проездом'],[0,'Unexplored','Не был']];
-let brush=4, state={}, cnt={}, memo={};
+let brush=4, state={}, cnt={}, memo={}, dates={};
 const byId={};
 
 // ---- projection (Okinawa lifted into a top-left inset so main islands fill the frame) ----
@@ -208,10 +237,10 @@ for(const [n,en,ru] of LEG){
 const syncLegend=()=>document.querySelectorAll('.lg').forEach(l=>l.classList.toggle('active',+l.dataset.n===brush));
 
 // ---- score logic ----
-function toggle(id){const c=state[id]||0;state[id]=(c===brush)?0:brush;if(!state[id])delete state[id];paint(id);recalc();save();}
+function toggle(id){const c=state[id]||0;state[id]=(c===brush)?0:brush;if(!state[id])delete state[id];else if(!dates[id])dates[id]=Date.now();paint(id);recalc();save();}
 function paint(id){const el=vp.querySelector(`path[data-id="${id}"]`);el.style.fill=RAW[state[id]||0];}
 function paintAll(){for(const p of PREF)paint(p.id);}
-function recalc(){let sum=0,cn=0;for(const k in state){sum+=state[k];if(state[k]>0)cn++;}let vis=0;for(const k in cnt)vis+=cnt[k];document.getElementById('total').textContent=sum+' pts';document.getElementById('pct').textContent=cn+' / 47 префектур'+(vis?` · ${vis} визитов`:'');if(typeof checkAch==='function')checkAch();}
+function recalc(){let sum=0,cn=0;for(const k in state){sum+=state[k];if(state[k]>0)cn++;}let vis=0;for(const k in cnt)vis+=cnt[k];document.getElementById('total').textContent=sum+' pts';document.getElementById('pct').textContent=cn+' / 47 префектур'+(vis?` · ${vis} визитов`:'');if(typeof checkAch==='function')checkAch();if(typeof renderHistory==='function')renderHistory();}
 
 // ---- tooltip ----
 const tip=document.getElementById('tip');
@@ -280,10 +309,17 @@ document.getElementById('zfit').onclick=()=>{k=1;tx=0;ty=0;apply();};
 // ---- persistence + share ----
 const encode=()=>{const sc=PREF.map(p=>state[p.id]||0).join('');return PREF.some(p=>cnt[p.id])? sc+'-'+PREF.map(p=>Math.min(35,cnt[p.id]||0).toString(36)).join('') : sc;};
 function decode(str){state={};cnt={};const parts=str.split('-');const sc=parts[0],cc=parts[1];PREF.forEach((p,i)=>{const v=+sc[i]||0;if(v>0&&v<=5)state[p.id]=v;});if(cc)PREF.forEach((p,i)=>{const v=parseInt(cc[i]||'0',36)||0;if(v>0)cnt[p.id]=v;});}
-function save(){if(viewMode)return;localStorage.setItem('keikenchi',encode());localStorage.setItem('keikenchi_memo',JSON.stringify(memo));if(!location.search)history.replaceState(null,'','#'+encode());schedulePush();}
+function save(){if(viewMode)return;localStorage.setItem('keikenchi',encode());localStorage.setItem('keikenchi_memo',JSON.stringify(memo));if(!location.search)history.replaceState(null,'','#'+encode());schedulePush();if(typeof scheduleMe==='function')scheduleMe();}
 function load(){try{memo=JSON.parse(localStorage.getItem('keikenchi_memo')||'{}')||{};}catch{memo={};}let src=location.hash.slice(1)||localStorage.getItem('keikenchi')||'';if(src&&/^[0-5]+(-[0-9a-z]+)?$/.test(src))decode(src);paintAll();updateAllBadges();recalc();}
-function boot(){const q=new URLSearchParams(location.search);if(q.get('room')){currentRoom=q.get('room');}if(q.get('u')){loadUserMap(q.get('u'));}else{load();}if(currentRoom)renderBoard();}
-document.getElementById('reset').onclick=()=>{if(confirm('Сбросить всю карту?')){state={};cnt={};memo={};closePop();paintAll();updateAllBadges();recalc();save();}};
+async function boot(){
+  renderAccountBar();
+  const q=new URLSearchParams(location.search);
+  if(q.get('room'))currentRoom=q.get('room');
+  if(q.get('u')){ loadUserMap(q.get('u')); }
+  else { const logged=await loadMe(); if(logged)renderAccountBar(); else load(); }
+  if(currentRoom)renderBoard();
+}
+document.getElementById('reset').onclick=()=>{if(confirm('Сбросить всю карту?')){state={};cnt={};memo={};dates={};closePop();paintAll();updateAllBadges();recalc();save();}};
 document.getElementById('share').onclick=async()=>{const url=location.origin+location.pathname+'#'+encode();try{await navigator.clipboard.writeText(url);alert('Ссылка скопирована!\n'+url);}catch{prompt('Скопируй ссылку:',url);}};
 
 // labels toggle
@@ -456,6 +492,86 @@ function checkAch(){
   }
   if(unlocked.some(id=>!achSeen.includes(id))){achSeen=[...new Set([...achSeen,...unlocked])];localStorage.setItem('keikenchi_ach',JSON.stringify(achSeen));}
   renderAch(unlocked);
+}
+
+
+// ================= accounts / LK =================
+let account=null, pushMeTimer=null;
+const api=(path,opts={})=>fetch('/api'+path,{headers:{'content-type':'application/json'},...opts});
+function buildExtra(){return {memo,dates,ach:achSeen};}
+async function loadMe(){
+  try{
+    const r=await api('/me'); if(r.status!==200)return false;
+    const j=await r.json(); account={username:j.user.username};
+    if(j.map){
+      decode(j.map.data); cloud={id:j.map.id};
+      let ex={}; try{ex=JSON.parse(j.map.extra||'{}')||{};}catch{}
+      memo=ex.memo||{}; dates=ex.dates||{}; achSeen=ex.ach||[];
+      localStorage.setItem('keikenchi',encode()); localStorage.setItem('keikenchi_memo',JSON.stringify(memo));
+    }
+    paintAll(); updateAllBadges(); recalc();
+    return true;
+  }catch{return false;}
+}
+async function pushMe(){
+  if(!account||viewMode)return;
+  try{const r=await api('/me',{method:'PUT',body:JSON.stringify({name:account.username,data:encode(),extra:buildExtra()})});
+    const j=await r.json(); if(j.id)cloud={id:j.id};
+    if(currentRoom)renderBoard();
+  }catch{}
+}
+function scheduleMe(){ if(!account||viewMode)return; clearTimeout(pushMeTimer); pushMeTimer=setTimeout(pushMe,1200); }
+
+// auth modal
+let authMode='login';
+const authModal=document.getElementById('authmodal');
+const authUserEl=document.getElementById('authuser'), authPassEl=document.getElementById('authpass'), authErrEl=document.getElementById('autherr');
+function syncAuthUI(){document.getElementById('authtitle').textContent=authMode==='login'?'Вход':'Регистрация';document.getElementById('authgo').textContent=authMode==='login'?'Войти':'Создать аккаунт';document.getElementById('authtoggle').textContent=authMode==='login'?'Нет аккаунта? Регистрация':'Уже есть аккаунт? Войти';}
+function openAuth(mode){authMode=mode;authErrEl.textContent='';syncAuthUI();authModal.classList.add('on');authUserEl.focus();}
+function closeAuth(){authModal.classList.remove('on');authErrEl.textContent='';}
+document.getElementById('authtoggle').onclick=()=>{authMode=authMode==='login'?'register':'login';authErrEl.textContent='';syncAuthUI();};
+document.getElementById('authcancel').onclick=closeAuth;
+authModal.addEventListener('click',e=>{if(e.target===authModal)closeAuth();});
+async function doAuth(){
+  const u=authUserEl.value.trim(), p=authPassEl.value;
+  if(u.length<3||p.length<6){authErrEl.textContent='ник ≥3, пароль ≥6';return;}
+  authErrEl.textContent='…';
+  try{
+    const r=await api('/auth/'+authMode,{method:'POST',body:JSON.stringify({username:u,password:p})});
+    const j=await r.json();
+    if(!r.ok){authErrEl.textContent=({['username taken']:'ник занят',['wrong login or password']:'неверный ник или пароль'}[j.error])||j.error||'ошибка';return;}
+    account={username:j.username}; closeAuth(); authPassEl.value='';
+    if(authMode==='login'){ await loadMe(); } else { await pushMe(); }  // register keeps current progress
+    renderAccountBar(); toast('👤 Привет, '+j.username+'!');
+  }catch{authErrEl.textContent='нет связи с сервером';}
+}
+document.getElementById('authgo').onclick=doAuth;
+authPassEl.addEventListener('keydown',e=>{if(e.key==='Enter')doAuth();});
+async function doLogout(){try{await api('/auth/logout',{method:'POST'});}catch{} account=null; renderAccountBar(); toast('вышли из аккаунта'); }
+function renderAccountBar(){
+  const el=document.getElementById('acctbar');
+  if(account){
+    el.innerHTML=`<button class="who" id="lkbtn">👤 ${esc(account.username)}</button><button id="logoutbtn">Выйти</button>`;
+    document.getElementById('logoutbtn').onclick=doLogout;
+    document.getElementById('lkbtn').onclick=()=>document.getElementById('history').scrollIntoView({behavior:'smooth',block:'center'});
+  }else{
+    el.innerHTML=`<button id="loginbtn">Войти / Регистрация</button>`;
+    document.getElementById('loginbtn').onclick=()=>openAuth('login');
+  }
+}
+
+// history "где я был"
+const HLAB={5:'Жил там',4:'Ночевал',3:'Гулял',2:'Заезжал',1:'Проездом'};
+function fmtDate(ts){try{return new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});}catch{return '';}}
+function renderHistory(){
+  const el=document.getElementById('history'); if(!el)return;
+  const ids=Object.keys(state).filter(k=>state[k]>0).map(Number).sort((a,b)=>(state[b]-state[a])||(a-b));
+  if(!ids.length){el.innerHTML='';return;}
+  const rows=ids.map(id=>{const p=byId[id];const sc=state[id];const c=cnt[id]||0;const mm=memo[id];const dt=dates[id];
+    const meta=[c>1?('×'+c):'',dt?fmtDate(dt):''].filter(Boolean).join(' · ');
+    return `<div class="hrow"><span class="hd" style="background:${RAW[sc]}"></span><span><span class="hn">${esc(p.r)} ${esc(p.ja)}</span> — ${HLAB[sc]}${mm?` <span class="hmemo">«${esc(mm)}»</span>`:''}</span><span class="hmeta">${meta}</span></div>`;
+  }).join('');
+  el.innerHTML=`<h3>📖 Где я был · ${ids.length}</h3>`+rows;
 }
 
 apply(); syncLegend(); boot();
