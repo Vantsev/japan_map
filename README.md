@@ -25,11 +25,14 @@
 
 ## Данные карты
 
-`japan.min.json` — 47 префектур, упрощённая геометрия (собственный ring-aware Douglas-Peucker, eps≈0.004°) из [`dataofjapan/land`](https://github.com/dataofjapan/land). Исходный `japan.geojson` (13 МБ) в репо не хранится — качается заново:
+`japan.min.json` — 47 префектур, упрощённая геометрия (собственный ring-aware Douglas-Peucker) из [`dataofjapan/land`](https://github.com/dataofjapan/land). Исходный `japan.geojson` (13 МБ) в репо не хранится — качается заново и упрощается через `simplify.py`:
 
 ```bash
 curl -sL -o japan.geojson https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson
+python3 simplify.py 0.0008   # eps в градусах: меньше = глаже берег, больше файл
 ```
+
+Окинава выносится во врезку (верх-лево), главные острова масштабируются по своему bbox — иначе далёкий юг сжимает всю карту.
 
 ## Разработка
 
