@@ -74,6 +74,10 @@ function cleanExtra(x) {
     for (const k of Object.keys(x.dates).slice(0, 47)) { const v = +x.dates[k]; if (v > 0) out.dates[k] = v; }
   }
   if (Array.isArray(x.ach)) out.ach = x.ach.filter((s) => typeof s === 'string').slice(0, 50);
+  if (x.plan && typeof x.plan === 'object') {
+    out.plan = {};
+    for (const k of Object.keys(x.plan).slice(0, 47)) out.plan[k] = 1;
+  }
   const s = JSON.stringify(out);
   return s.length <= 20000 ? s : null;
 }

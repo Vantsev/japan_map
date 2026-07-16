@@ -129,7 +129,7 @@ html = r'''<!DOCTYPE html>
     </div>
   </div>
 
-  <div class="hint">Уровень слева → клик красит балл. Правый клик / долгий тап — счётчик визитов (был неоднократно). Колесо/пинч — зум, тяни — двигать.</div>
+  <div class="hint">Уровень слева → клик красит балл (📌 План — куда хочешь поехать). Правый клик / долгий тап — счётчик визитов. Колесо/пинч — зум, тяни — двигать.</div>
   <div class="bar">
     <button id="labels">Названия</button>
     <button id="png">Скачать PNG</button>
@@ -174,8 +174,9 @@ html = r'''<!DOCTYPE html>
 <script>
 const PREF = __DATA__;
 const RAW = {0:'#ffffff',1:'#8fc7f0',2:'#7fd6a8',3:'#f5cf51',4:'#ee7f5f',5:'#f2a9cf'};
-const LEG = [[5,'Resided','Жил там'],[4,'Stayed','Ночевал'],[3,'Visited','Гулял'],[2,'Landed','Заезжал'],[1,'Passed','Проездом'],[0,'Unexplored','Не был']];
-let brush=4, state={}, cnt={}, memo={}, dates={};
+const LEG = [['P','Plan','План поездки'],[5,'Resided','Жил там'],[4,'Stayed','Ночевал'],[3,'Visited','Гулял'],[2,'Landed','Заезжал'],[1,'Passed','Проездом'],[0,'Unexplored','Не был']];
+let brush=4, state={}, cnt={}, memo={}, dates={}, plan={};
+const PLAN='#c9b3e6';
 const byId={};
 
 // ---- projection (Okinawa lifted into a top-left inset so main islands fill the frame) ----
@@ -223,6 +224,10 @@ vp.appendChild(badges);
 const labels=document.createElementNS(NS,'g'); labels.id='plabels'; vp.appendChild(labels);
 const shortJa=j=>j.replace(/[県都府道]$/,'');
 for(const p of PREF){const [cx,cy]=centroid(p);const t=document.createElementNS(NS,'text');t.setAttribute('class','plabel');t.setAttribute('x',cx.toFixed(1));t.setAttribute('y',(cy+9).toFixed(1));t.textContent=shortJa(p.ja);labels.appendChild(t);}
+const pins=document.createElementNS(NS,'g'); vp.appendChild(pins); const pinEl={};
+for(const p of PREF){const [cx,cy]=centroid(p);const t=document.createElementNS(NS,'text');t.setAttribute('class','plabel');t.setAttribute('x',cx.toFixed(1));t.setAttribute('y',(cy-9).toFixed(1));t.setAttribute('font-size','11');pins.appendChild(t);pinEl[p.id]=t;}
+function updatePin(id){pinEl[id].textContent=plan[id]?'📌':'';}
+function updateAllPins(){for(const p of PREF)updatePin(p.id);}
 function updateBadge(id){const c=cnt[id]||0; badgeEl[id].textContent = c>=2 ? '×'+c : (memo[id]?'·':'');}
 function updateAllBadges(){for(const p of PREF)updateBadge(p.id);}
 
@@ -230,17 +235,18 @@ function updateAllBadges(){for(const p of PREF)updateBadge(p.id);}
 const legEl=document.getElementById('legend'); legEl.innerHTML='<h3>Score</h3>';
 for(const [n,en,ru] of LEG){
   const div=document.createElement('div'); div.className='lg'; div.dataset.n=n;
-  div.innerHTML=`<span class="dot" style="background:${RAW[n]}">${n}</span><b>${en}</b><span>${ru}</span>`;
-  div.onclick=()=>{brush=n;syncLegend();};
+  const dotBg=n==='P'?PLAN:RAW[n]; const dotTxt=n==='P'?'📌':n;
+  div.innerHTML=`<span class="dot" style="background:${dotBg}">${dotTxt}</span><b>${en}</b><span>${ru}</span>`;
+  div.onclick=()=>{brush=(n==='P')?'P':+n;syncLegend();};
   legEl.appendChild(div);
 }
-const syncLegend=()=>document.querySelectorAll('.lg').forEach(l=>l.classList.toggle('active',+l.dataset.n===brush));
+const syncLegend=()=>document.querySelectorAll('.lg').forEach(l=>l.classList.toggle('active',l.dataset.n===String(brush)));
 
 // ---- score logic ----
-function toggle(id){const c=state[id]||0;state[id]=(c===brush)?0:brush;if(!state[id])delete state[id];else if(!dates[id])dates[id]=Date.now();paint(id);recalc();save();}
-function paint(id){const el=vp.querySelector(`path[data-id="${id}"]`);el.style.fill=RAW[state[id]||0];}
+function toggle(id){if(brush==='P'){if(plan[id])delete plan[id];else plan[id]=1;paint(id);updatePin(id);recalc();save();return;}const c=state[id]||0;state[id]=(c===brush)?0:brush;if(!state[id])delete state[id];else if(!dates[id])dates[id]=Date.now();paint(id);recalc();save();}
+function paint(id){const el=vp.querySelector(`path[data-id="${id}"]`);el.style.fill=state[id]?RAW[state[id]]:(plan[id]?PLAN:'#ffffff');}
 function paintAll(){for(const p of PREF)paint(p.id);}
-function recalc(){let sum=0,cn=0;for(const k in state){sum+=state[k];if(state[k]>0)cn++;}let vis=0;for(const k in cnt)vis+=cnt[k];document.getElementById('total').textContent=sum+' pts';document.getElementById('pct').textContent=cn+' / 47 префектур'+(vis?` · ${vis} визитов`:'');if(typeof checkAch==='function')checkAch();if(typeof renderHistory==='function')renderHistory();}
+function recalc(){let sum=0,cn=0;for(const k in state){sum+=state[k];if(state[k]>0)cn++;}let vis=0;for(const k in cnt)vis+=cnt[k];document.getElementById('total').textContent=sum+' pts';const pl=Object.keys(plan).length;document.getElementById('pct').textContent=cn+' / 47 префектур'+(vis?` · ${vis} визитов`:'')+(pl?` · 📌 ${pl} в плане`:'');if(typeof checkAch==='function')checkAch();if(typeof renderHistory==='function')renderHistory();}
 
 // ---- tooltip ----
 const tip=document.getElementById('tip');
@@ -309,8 +315,8 @@ document.getElementById('zfit').onclick=()=>{k=1;tx=0;ty=0;apply();};
 // ---- persistence + share ----
 const encode=()=>{const sc=PREF.map(p=>state[p.id]||0).join('');return PREF.some(p=>cnt[p.id])? sc+'-'+PREF.map(p=>Math.min(35,cnt[p.id]||0).toString(36)).join('') : sc;};
 function decode(str){state={};cnt={};const parts=str.split('-');const sc=parts[0],cc=parts[1];PREF.forEach((p,i)=>{const v=+sc[i]||0;if(v>0&&v<=5)state[p.id]=v;});if(cc)PREF.forEach((p,i)=>{const v=parseInt(cc[i]||'0',36)||0;if(v>0)cnt[p.id]=v;});}
-function save(){if(viewMode)return;localStorage.setItem('keikenchi',encode());localStorage.setItem('keikenchi_memo',JSON.stringify(memo));if(!location.search)history.replaceState(null,'','#'+encode());schedulePush();if(typeof scheduleMe==='function')scheduleMe();}
-function load(){try{memo=JSON.parse(localStorage.getItem('keikenchi_memo')||'{}')||{};}catch{memo={};}let src=location.hash.slice(1)||localStorage.getItem('keikenchi')||'';if(src&&/^[0-5]+(-[0-9a-z]+)?$/.test(src))decode(src);paintAll();updateAllBadges();recalc();}
+function save(){if(viewMode)return;localStorage.setItem('keikenchi',encode());localStorage.setItem('keikenchi_memo',JSON.stringify(memo));localStorage.setItem('keikenchi_plan',JSON.stringify(plan));if(!location.search)history.replaceState(null,'','#'+encode());schedulePush();if(typeof scheduleMe==='function')scheduleMe();}
+function load(){try{memo=JSON.parse(localStorage.getItem('keikenchi_memo')||'{}')||{};}catch{memo={};}try{plan=JSON.parse(localStorage.getItem('keikenchi_plan')||'{}')||{};}catch{plan={};}let src=location.hash.slice(1)||localStorage.getItem('keikenchi')||'';if(src&&/^[0-5]+(-[0-9a-z]+)?$/.test(src))decode(src);paintAll();updateAllBadges();updateAllPins();recalc();}
 async function boot(){
   renderAccountBar();
   const q=new URLSearchParams(location.search);
@@ -319,7 +325,7 @@ async function boot(){
   else { const logged=await loadMe(); if(logged)renderAccountBar(); else load(); }
   if(currentRoom)renderBoard();
 }
-document.getElementById('reset').onclick=()=>{if(confirm('Сбросить всю карту?')){state={};cnt={};memo={};dates={};closePop();paintAll();updateAllBadges();recalc();save();}};
+document.getElementById('reset').onclick=()=>{if(confirm('Сбросить всю карту?')){state={};cnt={};memo={};dates={};plan={};closePop();paintAll();updateAllBadges();updateAllPins();recalc();save();}};
 document.getElementById('share').onclick=async()=>{const url=location.origin+location.pathname+'#'+encode();try{await navigator.clipboard.writeText(url);alert('Ссылка скопирована!\n'+url);}catch{prompt('Скопируй ссылку:',url);}};
 
 // labels toggle
@@ -429,7 +435,7 @@ async function loadUserMap(id){
   try{
     const r=await (await fetch(`${API}/map/${id}`)).json();
     if(r.error){alert('Карта не найдена.');return;}
-    decode(r.data); paintAll(); updateAllBadges(); recalc(); viewMode=true;
+    decode(r.data); plan={}; paintAll(); updateAllBadges(); updateAllPins(); recalc(); viewMode=true;
     bannerEl.className='on';
     bannerEl.innerHTML=`👀 карта пользователя <b>${esc(r.name||'аноним')}</b> · ${r.score} pts <button id="tomine">вести свою</button>`;
     document.getElementById('tomine').onclick=()=>{ viewMode=false; bannerEl.className=''; history.replaceState(null,'',location.pathname); load(); };
@@ -468,6 +474,8 @@ const ACH=[
   {id:'kansai',e:'🏯',t:'Кансай-мастер',d:'весь регион Кансай',f:()=>allOf(KANSAI)},
   {id:'nomad',e:'🎒',t:'Кочевник',d:'20+ визитов',f:()=>totVisits()>=20},
   {id:'regular',e:'🔁',t:'Завсегдатай',d:'×5 в одну префектуру',f:()=>maxVisit()>=5},
+  {id:'planner',e:'📌',t:'Планировщик',d:'наметил след. поездку',f:()=>Object.keys(plan).length>=1},
+  {id:'dreamer',e:'🗺️',t:'Мечтатель',d:'5 префектур в плане',f:()=>Object.keys(plan).length>=5},
   {id:'tottori',e:'🥚',t:'???',d:'секретная',secret:true,rt:'Нашёл Тоттори',rd:'отметил самую забытую',f:()=>!!state[31]},
 ];
 const achEl=document.getElementById('ach');
@@ -498,7 +506,7 @@ function checkAch(){
 // ================= accounts / LK =================
 let account=null, pushMeTimer=null;
 const api=(path,opts={})=>fetch('/api'+path,{headers:{'content-type':'application/json'},...opts});
-function buildExtra(){return {memo,dates,ach:achSeen};}
+function buildExtra(){return {memo,dates,ach:achSeen,plan};}
 async function loadMe(){
   try{
     const r=await api('/me'); if(r.status!==200)return false;
@@ -506,10 +514,10 @@ async function loadMe(){
     if(j.map){
       decode(j.map.data); cloud={id:j.map.id};
       let ex={}; try{ex=JSON.parse(j.map.extra||'{}')||{};}catch{}
-      memo=ex.memo||{}; dates=ex.dates||{}; achSeen=ex.ach||[];
+      memo=ex.memo||{}; dates=ex.dates||{}; achSeen=ex.ach||[]; plan=ex.plan||{};
       localStorage.setItem('keikenchi',encode()); localStorage.setItem('keikenchi_memo',JSON.stringify(memo));
     }
-    paintAll(); updateAllBadges(); recalc();
+    paintAll(); updateAllBadges(); updateAllPins(); recalc();
     return true;
   }catch{return false;}
 }
