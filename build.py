@@ -116,6 +116,7 @@ html = r'''<!DOCTYPE html>
   <h1>ALL JAPAN KEIKENCHI</h1>
   <div class="score" id="total">0 pts</div>
   <div class="count" id="pct">0 / 47 префектур</div>
+  <div style="margin-top:8px"><a href="/cities.html" style="font-size:13px;font-weight:600;color:#2a6fb0;text-decoration:none;border:2px solid var(--line);border-radius:10px;padding:6px 14px;display:inline-block;background:#fff">🏙 Уровень по городам →</a></div>
 
   <div class="layout">
     <div class="legend" id="legend"></div>

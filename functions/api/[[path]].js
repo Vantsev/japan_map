@@ -61,9 +61,9 @@ function calcScore(data) {
 const validData = (d) => typeof d === 'string' && d.length <= 200 && /^[0-5]{1,47}(-[0-9a-z]{1,47})?$/.test(d);
 const cleanName = (s) => (typeof s === 'string' ? s : '').trim().slice(0, 40);
 const validUser = (u) => typeof u === 'string' && /^[a-zA-Z0-9_.\-]{3,20}$/.test(u);
-function cleanExtra(x) {
-  // keep only known keys, bound size
-  if (!x || typeof x !== 'object') return null;
+// sanitize an incoming extra object -> object with only known keys (for merging)
+function cleanExtraObj(x) {
+  if (!x || typeof x !== 'object') return {};
   const out = {};
   if (x.memo && typeof x.memo === 'object') {
     out.memo = {};
@@ -73,13 +73,16 @@ function cleanExtra(x) {
     out.dates = {};
     for (const k of Object.keys(x.dates).slice(0, 47)) { const v = +x.dates[k]; if (v > 0) out.dates[k] = v; }
   }
-  if (Array.isArray(x.ach)) out.ach = x.ach.filter((s) => typeof s === 'string').slice(0, 50);
+  if (Array.isArray(x.ach)) out.ach = x.ach.filter((s) => typeof s === 'string').slice(0, 60);
   if (x.plan && typeof x.plan === 'object') {
     out.plan = {};
     for (const k of Object.keys(x.plan).slice(0, 47)) out.plan[k] = 1;
   }
-  const s = JSON.stringify(out);
-  return s.length <= 20000 ? s : null;
+  if (x.cities && typeof x.cities === 'object') {
+    out.cities = {};
+    for (const k of Object.keys(x.cities).slice(0, 2000)) { const v = +x.cities[k]; if (v >= 1 && v <= 5) out.cities[String(k)] = v; }
+  }
+  return out;
 }
 
 // ---- session cookie ----
@@ -105,19 +108,25 @@ async function currentUser(request, db) {
   return u || null;
 }
 
-// upsert the logged-in user's board
+// upsert the logged-in user's board. data optional (keep existing if absent);
+// extra keys are MERGED (so the map page and the cities page don't clobber each other).
 async function saveUserMap(db, userId, body) {
-  const name = cleanName(body.name);
-  const data = body.data;
-  const extra = cleanExtra(body.extra);
-  const score = calcScore(data);
   const now = Date.now();
-  const existing = await db.prepare('SELECT id FROM maps WHERE user_id=?').bind(userId).first();
+  const existing = await db.prepare('SELECT id,name,data,extra FROM maps WHERE user_id=?').bind(userId).first();
+  let data = existing ? existing.data : '0';
+  if (typeof body.data === 'string') {
+    if (!validData(body.data)) throw new Error('bad data');
+    data = body.data;
+  }
+  const name = body.name != null ? cleanName(body.name) : existing ? existing.name : '';
+  let ex = {};
+  try { ex = JSON.parse((existing && existing.extra) || '{}') || {}; } catch { ex = {}; }
+  Object.assign(ex, cleanExtraObj(body.extra));
+  let extra = JSON.stringify(ex);
+  if (extra.length > 80000) extra = existing ? existing.extra : null; // guard runaway size
+  const score = calcScore(data);
   if (existing) {
-    await db
-      .prepare('UPDATE maps SET name=?,data=?,extra=?,score=?,updated_at=? WHERE id=?')
-      .bind(name, data, extra, score, now, existing.id)
-      .run();
+    await db.prepare('UPDATE maps SET name=?,data=?,extra=?,score=?,updated_at=? WHERE id=?').bind(name, data, extra, score, now, existing.id).run();
     return { id: existing.id, score };
   }
   const id = rid(8), editKey = rid(16);
@@ -183,9 +192,12 @@ export async function onRequest(context) {
       }
       if (m === 'PUT') {
         const b = await request.json().catch(() => ({}));
-        if (!validData(b.data)) return bad('bad data');
-        const r = await saveUserMap(db, user.id, b);
-        return J(r);
+        try {
+          const r = await saveUserMap(db, user.id, b);
+          return J(r);
+        } catch (e) {
+          return bad(String((e && e.message) || 'bad request'));
+        }
       }
       return bad('method', 405);
     }
