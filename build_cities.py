@@ -179,7 +179,7 @@ async function openPref(id){
     const path=document.createElementNS(NS,'path');
     path.setAttribute('d',pathD(c.poly,proj));path.setAttribute('class','reg');path.setAttribute('stroke-width','.5');
     path.style.fill=RAW[cities[c.code]||0];path.dataset.code=c.code;path._c=c;
-    path.addEventListener('mousemove',e=>{tip.textContent=`${c.name} ${c.r||''} · ${cities[c.code]||0}`;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';tip.style.opacity=1;});
+    path.addEventListener('mousemove',e=>{const sc=cities[c.code]||0;tip.textContent=`${c.name} ${c.r||''}`+(sc?` · ${sc}`:'');tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';tip.style.opacity=1;});
     path.addEventListener('mouseleave',()=>tip.style.opacity=0);
     vp.appendChild(path);
   }
