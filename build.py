@@ -93,7 +93,6 @@ html = r'''<!DOCTYPE html>
   <div class="bar">
     <button id="labels">Названия</button>
     <button id="png">Скачать PNG</button>
-    <button id="svg">Скачать SVG</button>
     <button id="share">Поделиться ссылкой</button>
     <button id="reset">Сбросить</button>
   </div>
@@ -287,22 +286,25 @@ function buildExportSVG(){
 }
 function dl(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click();}
 
-// PNG — high resolution (~2400px wide), crisp
-document.getElementById('png').onclick=()=>{
+// PNG — very high resolution (~4800px wide) so it stays crisp when zoomed
+const pngBtn=document.getElementById('png');
+pngBtn.onclick=()=>{
   const svgStr=buildExportSVG();
   const url='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svgStr)));
   const img=new Image();
+  const old=pngBtn.textContent; pngBtn.textContent='рендер…'; pngBtn.disabled=true;
+  const done=()=>{pngBtn.textContent=old;pngBtn.disabled=false;};
   img.onload=()=>{
-    const S=4,c=document.createElement('canvas');c.width=EXW*S;c.height=EXH*S;
-    const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.setTransform(S,0,0,S,0,0);ctx.drawImage(img,0,0);
-    c.toBlob(b=>dl(URL.createObjectURL(b),'keikenchi.png'),'image/png');
+    let S=8;                                   // ~4800x6160 px
+    const MAXPX=32e6;                          // guard canvas area for cross-browser safety
+    while(EXW*S*EXH*S>MAXPX && S>2) S--;
+    const c=document.createElement('canvas'); c.width=EXW*S; c.height=EXH*S;
+    const ctx=c.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.setTransform(S,0,0,S,0,0); ctx.drawImage(img,0,0);
+    c.toBlob(b=>{ if(b) dl(URL.createObjectURL(b),'keikenchi.png'); else alert('Не удалось отрендерить PNG (слишком большой холст).'); done(); },'image/png');
   };
+  img.onerror=()=>{alert('Ошибка рендера PNG.');done();};
   img.src=url;
-};
-// SVG — true vector, zoom forever
-document.getElementById('svg').onclick=()=>{
-  const blob=new Blob([buildExportSVG()],{type:'image/svg+xml'});
-  dl(URL.createObjectURL(blob),'keikenchi.svg');
 };
 
 
