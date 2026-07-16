@@ -16,7 +16,8 @@
   .crumb a{color:#2a6fb0;cursor:pointer;text-decoration:none}
   .score{display:inline-block;background:#fbe6a8;border-radius:12px;padding:10px 30px;font-size:22px;font-weight:800;min-width:150px}
   .count{font-size:12px;color:#8a7f6a;margin-top:4px}
-  .topbar{position:fixed;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:30}
+  .topbar{position:fixed;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;z-index:30}
+  .tleft{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
   .topbar a,.topbar button{font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:9px;border:2px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:var(--ink)}
   .layout{display:flex;gap:14px;align-items:flex-start;justify-content:center;margin-top:12px;flex-wrap:wrap}
   .legend{text-align:left;font-size:12px}
@@ -47,7 +48,7 @@
 </style>
 </head>
 <body>
-<div class="topbar"><a href="/">← карта префектур</a><span id="acct"></span></div>
+<div class="topbar"><div class="tleft"><a href="/">← карта префектур</a><button id="back" style="display:none">← назад к уровню по городам</button></div><span id="acct"></span></div>
 <div class="wrap">
   <h1>KEIKENCHI · УРОВЕНЬ ПО ГОРОДАМ</h1>
   <div class="crumb" id="crumb">🗾 Япония</div>
@@ -109,6 +110,7 @@ function prefRatio(id){const info=IDX[id];if(!info||!info.n)return null;let done
 function renderOverview(){
   view='over';curPref=null;
   document.getElementById('crumb').innerHTML='🗾 Япония';
+  document.getElementById('back').style.display='none';
   document.getElementById('hint').textContent='Клик по префектуре — открыть её города. Подсветка = доля отмеченных городов.';
   vp.innerHTML='';k=1;tx=0;ty=0;apply();
   const proj=projector(PREF);
@@ -151,8 +153,8 @@ function renderStats(){
 async function openPref(id){
   view='detail';curPref=id;tip.style.opacity=0;
   const pr=(PREF.find(p=>p.id===id)||{});
-  document.getElementById('crumb').innerHTML='<button class="backbtn" id="back">← ко всем префектурам</button><div>🗾 Япония › '+esc(pr.r||'')+' '+esc(pr.ja||'')+'</div>';
-  document.getElementById('back').onclick=renderOverview;
+  document.getElementById('crumb').innerHTML='🗾 Япония › '+esc(pr.r||'')+' '+esc(pr.ja||'');
+  document.getElementById('back').style.display='';
   document.getElementById('stats').classList.add('hide');
   document.getElementById('hint').textContent='Клик по городу — отметить уровнем слева. Колесо/пинч — зум, тяни — двигать.';
   vp.innerHTML='<text x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" class="spin">загрузка городов…</text>';
@@ -234,6 +236,7 @@ document.getElementById('zout').onclick=()=>zoomAt(W/2,H/2,k/1.4);
 document.getElementById('zfit').onclick=()=>{k=1;tx=0;ty=0;apply();};
 
 // ---- boot ----
+document.getElementById('back').onclick=renderOverview;
 (async()=>{ await loadAccount(); renderOverview(); })();
 </script>
 </body>
