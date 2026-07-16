@@ -93,6 +93,7 @@ html = r'''<!DOCTYPE html>
   <div class="bar">
     <button id="labels">Названия</button>
     <button id="png">Скачать PNG</button>
+    <button id="svg">Скачать SVG</button>
     <button id="share">Поделиться ссылкой</button>
     <button id="reset">Сбросить</button>
   </div>
@@ -267,29 +268,41 @@ document.getElementById('share').onclick=async()=>{const url=location.origin+loc
 const lblBtn=document.getElementById('labels');
 lblBtn.onclick=()=>{const on=labels.classList.toggle('on');lblBtn.classList.toggle('on',on);};
 
-// PNG export — clean map + score only
-document.getElementById('png').onclick=async()=>{
+// ---- export: clean card (map + score), as crisp PNG or vector SVG ----
+const EXW=600,EXH=770;
+function buildExportSVG(){
   const total=document.getElementById('total').textContent;
   const pct=document.getElementById('pct').textContent;
-  const inner=vp.innerHTML; // paths+badges(+labels) with inline fills
+  const inner=vp.innerHTML; // paths+badges(+labels)+inset with inline fills
   const showL=labels.classList.contains('on');
-  const svgStr=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="770" viewBox="0 0 600 770">
-<style>path{stroke:#3a3a3a;stroke-width:.6;stroke-linejoin:round}text.badge{font:700 11px sans-serif;fill:#222;paint-order:stroke;stroke:#fff;stroke-width:3px;text-anchor:middle;dominant-baseline:central}text.plabel{font:600 8px sans-serif;fill:#2a2a2a;paint-order:stroke;stroke:#fff;stroke-width:2.4px;text-anchor:middle;dominant-baseline:central;${showL?'':'display:none'}}#plabels{${showL?'':'display:none'}}</style>
-<rect width="600" height="770" fill="#f6efe1"/>
-<text x="300" y="40" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="16" letter-spacing="1.5" fill="#333">ALL JAPAN KEIKENCHI</text>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${EXW}" height="${EXH}" viewBox="0 0 ${EXW} ${EXH}">
+<style>path{stroke:#3a3a3a;stroke-width:.5;stroke-linejoin:round;stroke-linecap:round}text.badge{font:700 11px -apple-system,sans-serif;fill:#222;paint-order:stroke;stroke:#fff;stroke-width:3px;text-anchor:middle;dominant-baseline:central}text.plabel{font:600 8px -apple-system,sans-serif;fill:#2a2a2a;paint-order:stroke;stroke:#fff;stroke-width:2.4px;text-anchor:middle;dominant-baseline:central;${showL?'':'display:none'}}#plabels{${showL?'':'display:none'}}</style>
+<rect width="${EXW}" height="${EXH}" fill="#f6efe1"/>
+<text x="300" y="40" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="700" font-size="16" letter-spacing="1.5" fill="#333">ALL JAPAN KEIKENCHI</text>
 <rect x="200" y="58" width="200" height="52" rx="12" fill="#fbe6a8"/>
-<text x="300" y="92" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="30" fill="#333">${total}</text>
-<text x="300" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#8a7f6a">${pct}</text>
+<text x="300" y="92" text-anchor="middle" font-family="-apple-system,sans-serif" font-weight="800" font-size="30" fill="#333">${total}</text>
+<text x="300" y="128" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="12" fill="#8a7f6a">${pct}</text>
 <g transform="translate(40 150)">${inner}</g>
 </svg>`;
+}
+function dl(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click();}
+
+// PNG — high resolution (~2400px wide), crisp
+document.getElementById('png').onclick=()=>{
+  const svgStr=buildExportSVG();
   const url='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svgStr)));
   const img=new Image();
   img.onload=()=>{
-    const S=2,c=document.createElement('canvas');c.width=600*S;c.height=770*S;
-    const ctx=c.getContext('2d');ctx.scale(S,S);ctx.drawImage(img,0,0);
-    c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='keikenchi.png';a.click();});
+    const S=4,c=document.createElement('canvas');c.width=EXW*S;c.height=EXH*S;
+    const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.setTransform(S,0,0,S,0,0);ctx.drawImage(img,0,0);
+    c.toBlob(b=>dl(URL.createObjectURL(b),'keikenchi.png'),'image/png');
   };
   img.src=url;
+};
+// SVG — true vector, zoom forever
+document.getElementById('svg').onclick=()=>{
+  const blob=new Blob([buildExportSVG()],{type:'image/svg+xml'});
+  dl(URL.createObjectURL(blob),'keikenchi.svg');
 };
 
 
