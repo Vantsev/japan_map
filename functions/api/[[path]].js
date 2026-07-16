@@ -26,7 +26,7 @@ function randHex(n = 32) {
 }
 
 // ---- passwords (PBKDF2-SHA256) ----
-const PBKDF2_ITERS = 120000;
+const PBKDF2_ITERS = 100000; // Cloudflare Workers caps PBKDF2 iterations at 100000
 async function pbkdf2(pw, saltBytes) {
   const key = await crypto.subtle.importKey('raw', enc(pw), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
